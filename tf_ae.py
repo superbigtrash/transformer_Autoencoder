@@ -18,14 +18,11 @@ from sklearn.metrics import (
     roc_auc_score
 )
 
-
 # =========================================================
 # 0. Seed
 # =========================================================
 np.random.seed(42)
 tf.random.set_seed(42)
-
-
 # =========================================================
 # 1. Positional Encoding
 # =========================================================
@@ -37,9 +34,7 @@ class PositionalEncoding(layers.Layer):
         dimension = np.arange(d_model)[np.newaxis, :]
 
         angle_rates = 1 / np.power(10000,(2 * (dimension // 2)) / np.float32(d_model))
-
         angle_rads = position * angle_rates
-
         pos_encoding = np.zeros((sequence_length, d_model))
 
         # 짝수 index -> sin
@@ -47,7 +42,6 @@ class PositionalEncoding(layers.Layer):
 
         # 홀수 index -> cos
         pos_encoding[:, 1::2] = np.cos(angle_rads[:, 1::2])
-
         self.pos_encoding = tf.cast(pos_encoding[np.newaxis, ...],dtype=tf.float32)
 
     def call(self, x):
@@ -82,7 +76,6 @@ def transformer_encoder(x, d_model, num_heads, ff_dim, dropout=0.1):
     x = layers.LayerNormalization(epsilon=1e-6)(x + ffn_output)
 
     return x
-
 
 # =========================================================
 # 3. Transformer Autoencoder
@@ -120,44 +113,32 @@ def build_transformer_autoencoder(
     # Transformer Encoder
     # -----------------------------------------------------
     for _ in range(num_encoder_blocks):
-        x = transformer_encoder(
-            x=x,
-            d_model=d_model,
-            num_heads=num_heads,
-            ff_dim=ff_dim,
-            dropout=dropout)
-
+        x = transformer_encoder(x=x,d_model=d_model,num_heads=num_heads,ff_dim=ff_dim,dropout=dropout)
+        
     # -----------------------------------------------------
     # Bottleneck
     # -----------------------------------------------------
     x = layers.GlobalAveragePooling1D(name='global_average_pooling')(x)
-
     x = layers.Dense(32,activation='relu',name='encoder_dense')(x)
-
     latent = layers.Dense(latent_dim,activation=None,name='latent_vector')(x)
 
     # -----------------------------------------------------
     # Decoder
     # -----------------------------------------------------
     x = layers.Dense(sequence_length * d_model,activation='relu',name='decoder_dense')(latent)
-
     x = layers.Reshape((sequence_length, d_model),name='decoder_reshape')(x)
-
     x = layers.Dense(32,activation='relu',name='decoder_ffn')(x)
 
     # -----------------------------------------------------
     # Reconstruction
     # -----------------------------------------------------
     outputs = layers.Dense(n_features,activation=None,name='reconstruction')(x)
-
     model = Model(inputs=inputs,outputs=outputs,name='Transformer_Autoencoder')
 
     return model
 
 
-# =========================================================
 # 4. Sequence 생성 함수
-# =========================================================
 def make_sequence(data,labels,sequence_length):
 
     X = []
@@ -171,9 +152,8 @@ def make_sequence(data,labels,sequence_length):
 
     return (np.array(X),np.array(Y))
 
-# =========================================================
+
 # 5. Dataset Load
-# =========================================================
 normal = pd.read_csv('./press_data_normal.csv',index_col=0)
 outlier = pd.read_csv('./outlier_data.csv',index_col=0)
 
@@ -183,9 +163,8 @@ outlier_data = outlier.copy()
 
 use_col = ['AI0_Vibration','AI1_Vibration','AI2_Current']
 
-# =========================================================
+
 # 6. Feature / Label
-# =========================================================
 X_normal = normal_data[use_col]
 y_normal = normal_data['Equipment_state']
 
@@ -203,7 +182,7 @@ print("Anomaly shape :",X_anomaly.shape)
 #
 # 정상 뒷부분:
 # Validation / Test
-# =========================================================
+
 X_train_normal = X_normal.iloc[:15000]
 y_train_normal = y_normal.iloc[:15000]
 
@@ -233,10 +212,8 @@ X_anomaly_scaled = scaler.transform(X_anomaly_all)
 # =========================================================
 SEQUENCE_LENGTH = 50
 
-
 X_train, Y_train = make_sequence(X_train_scaled,np.array(y_train_normal),SEQUENCE_LENGTH)
 X_normal_seq, Y_normal_seq = make_sequence(X_normal_rest_scaled,np.array(y_normal_rest),SEQUENCE_LENGTH)
-
 X_anomaly_seq, Y_anomaly_seq = make_sequence(X_anomaly_scaled,np.array(y_anomaly_all),SEQUENCE_LENGTH)
 
 print()
@@ -247,7 +224,6 @@ print("Anomaly sequence shape :",X_anomaly_seq.shape)
 # =========================================================
 # 10. Validation / Test 분리
 # =========================================================
-
 # ---------------------------------------------------------
 # 정상 데이터
 # 20% -> Validation
@@ -294,14 +270,11 @@ print("Final Test     :",X_test.shape)
 # 12. Transformer Autoencoder 설정
 # =========================================================
 N_FEATURES = 3
-
 D_MODEL = 64
 NUM_HEADS = 4
 FF_DIM = 128
-
 LATENT_DIM = 16
 NUM_ENCODER_BLOCKS = 2
-
 DROPOUT = 0.1
 
 # =========================================================
@@ -317,7 +290,6 @@ model = build_transformer_autoencoder(
     num_encoder_blocks=NUM_ENCODER_BLOCKS,
     dropout=DROPOUT
 )
-
 # =========================================================
 # 14. Compile
 # =========================================================
@@ -361,28 +333,13 @@ plt.show()
 X_valid_pred = model.predict(X_valid_normal,verbose=0)
 # =========================================================
 # 19. 정상 Validation Reconstruction Error
-#
 # 각 Window마다 MSE 1개 계산
 # =========================================================
-valid_error = np.mean(
-    np.square(
-        X_valid_normal
-        - X_valid_pred
-    ),
-    axis=(1, 2)
-)
-
+valid_error = np.mean(np.square(X_valid_normal- X_valid_pred),axis=(1, 2))
 
 print()
-print(
-    "Validation reconstruction error"
-)
-
-print(
-    "Mean :",
-    np.mean(valid_error)
-)
-
+print("Validation reconstruction error")
+print("Mean :",np.mean(valid_error))
 print("Std  :",np.std(valid_error))
 print("Min  :",np.min(valid_error))
 print("Max  :",np.max(valid_error))
@@ -480,7 +437,6 @@ try:
 except ValueError : 
     print("ROC-AUC 계산 불가")
 
-
 # =========================================================
 # 29. Classification Report
 # =========================================================
@@ -512,27 +468,12 @@ plt.xticks([0, 1],['Normal','Anomaly'])
 plt.yticks([0, 1],['Normal','Anomaly'])
 plt.show()
 
-
 # =========================================================
 # 32. 시간 순 Reconstruction Error Plot
 # =========================================================
-plt.figure(
-    figsize=(14, 5)
-)
-
-
-plt.plot(
-    test_error,
-    label='Reconstruction Error'
-)
-
-
-plt.axhline(
-    threshold,
-    linestyle='--',
-    label='Threshold'
-)
-
+plt.figure(figsize=(14, 5))
+plt.plot(test_error,label='Reconstruction Error')
+plt.axhline(threshold,linestyle='--',label='Threshold')
 plt.xlabel('Sequence Index')
 plt.ylabel('Reconstruction Error')
 plt.title('Anomaly Score over Time')
